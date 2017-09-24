@@ -226,6 +226,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if( argc != 3 )
 	{
 		_tprintf( _T("Usage: BayerPattern <inputFile.bmp> <outputFile.bmp>\n") );
+		system( "pause" );
 		return 0;
 	}
 
