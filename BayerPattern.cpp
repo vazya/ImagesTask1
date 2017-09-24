@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <time.h>
+#include <assert.h>
 
 using namespace Gdiplus;
 
@@ -19,6 +20,7 @@ struct Pixel
 	int R;
 	int G;
 	int B;
+	Pixel( int R, int G, int B ) : R( R ), G( G ), B( B ) {};
 };
 
 struct Bound{
@@ -26,6 +28,8 @@ struct Bound{
 	int bot;
 	int left;
 	int right;
+	Bound() : 
+			top( 0 ), bot( 0 ), left( 0 ), right( 0 ) {}
 	Bound( int top, int bot, int left, int right ) : 
 			top( top ), bot( bot ), left( left ), right( right ) {}
 };
@@ -54,15 +58,17 @@ public:
 		if( top > h ) {
 			return h;
 		}
+		return top;
 	}
 	int CheckBot( int bot )
 	{
 		if( bot < 0 ) {
 			return 0;
 		}
-		if( bot > h ) {
+		if( bot == 0 || bot > h ) {
 			return h;
 		}
+		return bot;
 	}
 	int CheckLeft( int left )
 	{
@@ -72,28 +78,70 @@ public:
 		if( left > w ) {
 			return w;
 		}
+		return left;
 	}
 	int CheckRight( int right )
 	{
 		if( right < 0 ) {
 			return 0;
 		}
-		if( right > w ) {
+		if( right == 0 || right > w ) {
 			return w;
 		}
+		return right;
 	}
-	void CheckBound( Bound& bound )
+	// возвращает границы для безопасного обращения к куску картинки
+	Bound CheckBound( Bound& bound )
 	{
 		bound.top = CheckTop( bound.top );
 		bound.bot = CheckBot( bound.bot );
+		assert( bound.top <= bound.bot );
 		bound.left = CheckLeft( bound.left );
 		bound.right = CheckRight( bound.right );
+		assert( bound.left <= bound.right );
+		return bound;
+	}
+
+	int CheckX( int x )
+	{
+		if( x < 0 ) {
+			return 0;
+		}
+		if( x > w ) {
+			return w;
+		}
+		return x;
+	}
+	int CheckY( int y )
+	{
+		if( y < 0 ) {
+			return 0;
+		}
+		if( y > h ) {
+			return h;
+		}
+		return y;
+	}
+	// возвращает пиксель, делая проверки на безопасное обращение
+	// а также учитывающие stride и прочее
+	Pixel GetPixel( int x, int y )
+	{
+		x = CheckX( x );
+		y = CheckY( y );
+		int adr = bpr*y + bpp*x;
+		return Pixel( pBuffer[adr + 2], pBuffer[adr + 1], pBuffer[adr] );
 	}
 
 	void GrayscaleDemosacing( int top = 0, int bot = 0, int left = 0, int right = 0 )
 	{
-		Bound bound( top, bot, left, right );
-		CheckBound( bound );
+		//Bound bound( top, bot, left, right );
+		//CheckBound( bound );
+		Bound bound( CheckBound( Bound( top, bot, left, right ) ) );
+		top = bound.top;
+		bot = bound.bot;
+		left = bound.left;
+		right = bound.right;
+
 		int baseAdr = bpr*top + bpp*left; // 0;
 		for( int y = top; y < bot; y++ ) {
 			int pixelAdr = baseAdr;
@@ -115,6 +163,15 @@ public:
 				int G = pBuffer[pixelAdr + 1]; // green
 				int R = pBuffer[pixelAdr + 2]; // red
 
+				Pixel pixel = GetPixel( x, y );
+				int b = pixel.B;
+				int g = pixel.G;
+				int r = pixel.R;
+
+				assert( B == b );
+				assert( G == g );
+				assert( R == r );
+
 				int Y = ( LumaRed * R + LumaGreen * G + LumaBlue * B + ( CoeffNormalization >> 1 ) )
 					>> CoeffNormalizationBitsCount; // luminance
 													
@@ -133,17 +190,16 @@ public:
 
 void demosacing( BitmapData& pData )
 {
-	const int w = pData.Width;
-	const int h = pData.Height;
-	const int bpr = pData.Stride;
-	const int bpp = 3; // BGR24
-	BYTE *pBuffer = ( BYTE * )pData.Scan0;
+	//const int w = pData.Width;
+	//const int h = pData.Height;
+	//const int bpr = pData.Stride;
+	//const int bpp = 3; // BGR24
+	//BYTE *pBuffer = ( BYTE * )pData.Scan0;
 	CImage image( pData );
 
 	time_t start = clock();
-
-	image.GrayscaleDemosacing( 1324, 1536, 1720, 2462 );
-
+	// image.GrayscaleDemosacing( 1324, 1536, 1720, 2462 );
+	image.GrayscaleDemosacing();
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
 }
@@ -258,6 +314,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	GdiplusShutdown( gdiplusToken );
 	system( "openProcImage.cmd" );
-	system( "pause" );
+	// system( "pause" );
 	return 0;
 }
