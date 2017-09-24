@@ -14,17 +14,21 @@ static const int LumaBlue = 3735;	//	0.114
 static const int CoeffNormalizationBitsCount = 15;
 static const int CoeffNormalization = 1 << CoeffNormalizationBitsCount;
 
-struct pixel
+struct Pixel
 {
 	int R;
 	int G;
 	int B;
 };
 
-pixel GetPixel()
-{
-	return pixel();
-}
+struct Bound{
+	int top;
+	int bot;
+	int left;
+	int right;
+	Bound( int top, int bot, int left, int right ) : 
+			top( top ), bot( bot ), left( left ), right( right ) {}
+};
 
 class CImage {
 public:
@@ -42,15 +46,54 @@ public:
 			pBuffer( ( BYTE * )pData.Scan0 ) {
 	}
 	
-	
-
-	void GrayscaleDemosacing( int top = 0, bot = h, )
+	int CheckTop( int top )
 	{
-		int top = 1324; // 0;
-		int bot = 1536; // h;
-		int left = 1720; // 0;
-		int right = 2462; // w;
+		if( top < 0 ) {
+			return 0;
+		}
+		if( top > h ) {
+			return h;
+		}
+	}
+	int CheckBot( int bot )
+	{
+		if( bot < 0 ) {
+			return 0;
+		}
+		if( bot > h ) {
+			return h;
+		}
+	}
+	int CheckLeft( int left )
+	{
+		if( left < 0 ) {
+			return 0;
+		}
+		if( left > w ) {
+			return w;
+		}
+	}
+	int CheckRight( int right )
+	{
+		if( right < 0 ) {
+			return 0;
+		}
+		if( right > w ) {
+			return w;
+		}
+	}
+	void CheckBound( Bound& bound )
+	{
+		bound.top = CheckTop( bound.top );
+		bound.bot = CheckBot( bound.bot );
+		bound.left = CheckLeft( bound.left );
+		bound.right = CheckRight( bound.right );
+	}
 
+	void GrayscaleDemosacing( int top = 0, int bot = 0, int left = 0, int right = 0 )
+	{
+		Bound bound( top, bot, left, right );
+		CheckBound( bound );
 		int baseAdr = bpr*top + bpp*left; // 0;
 		for( int y = top; y < bot; y++ ) {
 			int pixelAdr = baseAdr;
@@ -99,7 +142,7 @@ void demosacing( BitmapData& pData )
 
 	time_t start = clock();
 
-	image.GrayscaleDemosacing();
+	image.GrayscaleDemosacing( 1324, 1536, 1720, 2462 );
 
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
@@ -213,6 +256,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	GdiplusShutdown( gdiplusToken );
+	system( "openProcImage.cmd" );
 	system( "pause" );
 	return 0;
 }
