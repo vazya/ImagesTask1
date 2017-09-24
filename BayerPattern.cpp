@@ -207,19 +207,12 @@ public:
 				}
 				// desaturation by 50%
 				// no need to check for the interval [0..255]
-				//pBuffer[pixelAdr] = ( Y + B ) >> 1;
-				//pBuffer[pixelAdr + 1] = ( Y + G ) >> 1;
-				//pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
-
 				int pixelAdr = GetAdr( x, y );
+
 				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
 				pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
 				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
-				//pixelAdr++;
-				//pixelAdr += bpp;
 			}
-			//baseAdr += h;
-			//baseAdr += bpr;
 		}
 	}
 	void GrayscaleDemosacing( int top = 0, int bot = 0, int left = 0, int right = 0 )
@@ -308,7 +301,6 @@ public:
 void demosacing( BitmapData& pData )
 {
 	CImage image( pData );
-	Pixel pixel = image.GetPixel( 731, 2073 );
 	time_t start = clock();
 	image.ANN();
 	time_t end = clock();
