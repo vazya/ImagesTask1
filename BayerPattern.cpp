@@ -14,7 +14,79 @@ static const int LumaBlue = 3735;	//	0.114
 static const int CoeffNormalizationBitsCount = 15;
 static const int CoeffNormalization = 1 << CoeffNormalizationBitsCount;
 
+struct pixel
+{
+	int R;
+	int G;
+	int B;
+};
 
+pixel GetPixel()
+{
+	return pixel();
+}
+
+class CImage {
+public:
+	const int w;
+	const int h;
+	const int bpr;
+	const int bpp;
+	BYTE *pBuffer;
+	
+	CImage( BitmapData& pData ) : 
+			w( pData.Width ), 
+			h( pData.Height ),
+			bpr( pData.Stride ),
+			bpp( 3 ), 
+			pBuffer( ( BYTE * )pData.Scan0 ) {
+	}
+	
+	
+
+	void GrayscaleDemosacing( int top = 0, bot = h, )
+	{
+		int top = 1324; // 0;
+		int bot = 1536; // h;
+		int left = 1720; // 0;
+		int right = 2462; // w;
+
+		int baseAdr = bpr*top + bpp*left; // 0;
+		for( int y = top; y < bot; y++ ) {
+			int pixelAdr = baseAdr;
+			for( int x = left; x < right; x++ ) {
+				//// красный пиксель
+				//if( x % 2 == 0 && y % 2 == 0 ) {
+				//	// printf( "%d %d \n", x, y );
+				//	int R = pBuffer[pixelAdr + 2]; // red
+				//	continue;
+				//}
+				//// синий пиксель
+				//if( x % 2 == 1 && y % 2 == 1 ) {
+				//	// printf( "%d %d \n", x, y );
+				//	continue;
+				//}
+				// printf( "%d %d \n", x, y );
+				// замечание, для исходной картинки эти три значения всегда равны
+				int B = pBuffer[pixelAdr]; // blue
+				int G = pBuffer[pixelAdr + 1]; // green
+				int R = pBuffer[pixelAdr + 2]; // red
+
+				int Y = ( LumaRed * R + LumaGreen * G + LumaBlue * B + ( CoeffNormalization >> 1 ) )
+					>> CoeffNormalizationBitsCount; // luminance
+													
+				// desaturation by 50%
+				// no need to check for the interval [0..255]
+				pBuffer[pixelAdr] = ( Y + B ) >> 1;
+				pBuffer[pixelAdr + 1] = 255; // ( Y + G ) >> 1;
+				pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
+
+				pixelAdr += bpp;
+			}
+			baseAdr += bpr;
+		}
+	}
+};
 
 void demosacing( BitmapData& pData )
 {
@@ -23,30 +95,11 @@ void demosacing( BitmapData& pData )
 	const int bpr = pData.Stride;
 	const int bpp = 3; // BGR24
 	BYTE *pBuffer = ( BYTE * )pData.Scan0;
+	CImage image( pData );
 
 	time_t start = clock();
 
-	int baseAdr = 0;
-	for( int y = 0; y < h; y++ ) {
-		int pixelAdr = baseAdr;
-		for( int x = 0; x < w; x++ ) {
-			int B = pBuffer[pixelAdr]; // blue
-			int G = pBuffer[pixelAdr + 1]; // green
-			int R = pBuffer[pixelAdr + 2]; // red
-
-			int Y = ( LumaRed * R + LumaGreen * G + LumaBlue * B + ( CoeffNormalization >> 1 ) )
-				>> CoeffNormalizationBitsCount; // luminance
-
-			// desaturation by 50%
-			// no need to check for the interval [0..255]
-			pBuffer[pixelAdr] = ( Y + B ) >> 1;
-			pBuffer[pixelAdr + 1] = ( Y + G ) >> 1;
-			pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
-
-			pixelAdr += bpp;
-		}
-		baseAdr += bpr;
-	}
+	image.GrayscaleDemosacing();
 
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
