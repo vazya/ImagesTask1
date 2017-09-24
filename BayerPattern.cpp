@@ -50,6 +50,12 @@ public:
 			pBuffer( ( BYTE * )pData.Scan0 ) {
 	}
 	
+	int GetAdr( int x, int y )
+	{
+		return bpr*y + bpp*x;
+		//return bpr*bpp*y + bpp*x;
+	}
+
 	int CheckTop( int top )
 	{
 		if( top < 0 ) {
@@ -107,8 +113,8 @@ public:
 		if( x < 0 ) {
 			return 0;
 		}
-		if( x > w ) {
-			return w;
+		if( x >= w ) {
+			return w-1;
 		}
 		return x;
 	}
@@ -117,8 +123,8 @@ public:
 		if( y < 0 ) {
 			return 0;
 		}
-		if( y > h ) {
-			return h;
+		if( y >= h ) {
+			return h-1;
 		}
 		return y;
 	}
@@ -128,14 +134,96 @@ public:
 	{
 		x = CheckX( x );
 		y = CheckY( y );
-		int adr = bpr*y + bpp*x;
+		//int adr = bpr*y + bpp*x;
+		int adr = GetAdr( x, y );//bpr*bpp*y + bpp*x;
 		return Pixel( pBuffer[adr + 2], pBuffer[adr + 1], pBuffer[adr] );
 	}
 
+	// усреднение по ближайшим соседям
+	void ANN( int top = 0, int bot = 0, int left = 0, int right = 0 )
+	{
+		Bound bound( CheckBound( Bound( top, bot, left, right ) ) );
+		top = bound.top;
+		bot = bound.bot;
+		left = bound.left;
+		right = bound.right;
+
+		// int baseAdr = 0; // bpr*top + bpp*left; // 0;
+		for( int y = top; y < bot; y++ ) {
+			// int pixelAdr = baseAdr;
+			for( int x = left; x < right; x++ ) {
+				Pixel pixel = GetPixel( x, y );
+				// замечание, для исходной картинки эти три значения всегда равны
+				int B = pixel.B;
+				int G = pixel.G;
+				int R = pixel.R;
+				int Y = (LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1)) >> CoeffNormalizationBitsCount; // luminance
+				
+				// красный пиксель - для этих пикселей был красный детектор интенсивности
+				if( x % 2 == 0 && y % 2 == 0 ) {
+					R = pixel.R; // правильное зачение
+
+					// усредним синий по соседям
+					int BTL = GetPixel( x - 1, y - 1 ).B; // Blue Top Left
+					int BTR = GetPixel( x + 1, y - 1 ).B; // Blue Top Right
+					int BBL = GetPixel( x - 1, y + 1 ).B; // Blue Bot Left
+					int BBR = GetPixel( x + 1, y + 1 ).B; // Blue Bot Right
+					B = int( (BTL + BTR + BBL + BBR) / 4 );
+
+					// усредним зеленый по соседям
+					int GT = GetPixel( x, y - 1 ).G; // Green Top
+					int GB = GetPixel( x, y + 1 ).G; // Green Bot
+					int GL = GetPixel( x - 1, y ).G; // Green Left
+					int GR = GetPixel( x + 1, y ).G; // Green Right
+					G = int( (GT + GB + GL + GR) / 4 );
+				}
+				// синий пиксель
+				if( x % 2 == 1 && y % 2 == 1 ) {
+					// усредним синий по соседям
+					int RTL = GetPixel( x - 1, y - 1 ).R; // Red Top Left
+					int RTR = GetPixel( x + 1, y - 1 ).R; // Red Top Right
+					int RBL = GetPixel( x - 1, y + 1 ).R; // Red Bot Left
+					int RBR = GetPixel( x + 1, y + 1 ).R; // Red Bot Right
+					R = int( (RTL + RTR + RBL + RBR) / 4 );
+
+					// усредним зеленый по соседям
+					int GT = GetPixel( x, y - 1 ).G; // Green Top
+					int GB = GetPixel( x, y + 1 ).G; // Green Bot
+					int GL = GetPixel( x - 1, y ).G; // Green Left
+					int GR = GetPixel( x + 1, y ).G; // Green Right
+					G = int( (GT + GB + GL + GR) / 4 );
+				}
+				// зеленый пиксель
+				if( (x % 2 == 1 && y % 2 == 0) || (x % 2 == 0 && y % 2 == 1) ) {
+					// усредним синий по соседям
+					int RT = GetPixel( x, y - 1 ).R; // Red Top
+					int RB = GetPixel( x, y + 1 ).R; // Red Bot
+					R = int( (RT + RB) / 2 );
+
+					// усредним зеленый по соседям
+					int BL = GetPixel( x - 1, y ).G; // Blue Left
+					int BR = GetPixel( x + 1, y ).G; // Blue Right
+					B = int( (BL + BR) / 2 );
+				}
+				// desaturation by 50%
+				// no need to check for the interval [0..255]
+				//pBuffer[pixelAdr] = ( Y + B ) >> 1;
+				//pBuffer[pixelAdr + 1] = ( Y + G ) >> 1;
+				//pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
+
+				int pixelAdr = GetAdr( x, y );
+				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
+				pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
+				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
+				//pixelAdr++;
+				//pixelAdr += bpp;
+			}
+			//baseAdr += h;
+			//baseAdr += bpr;
+		}
+	}
 	void GrayscaleDemosacing( int top = 0, int bot = 0, int left = 0, int right = 0 )
 	{
-		//Bound bound( top, bot, left, right );
-		//CheckBound( bound );
 		Bound bound( CheckBound( Bound( top, bot, left, right ) ) );
 		top = bound.top;
 		bot = bound.bot;
@@ -146,41 +234,70 @@ public:
 		for( int y = top; y < bot; y++ ) {
 			int pixelAdr = baseAdr;
 			for( int x = left; x < right; x++ ) {
-				//// красный пиксель
-				//if( x % 2 == 0 && y % 2 == 0 ) {
-				//	// printf( "%d %d \n", x, y );
-				//	int R = pBuffer[pixelAdr + 2]; // red
-				//	continue;
-				//}
-				//// синий пиксель
-				//if( x % 2 == 1 && y % 2 == 1 ) {
-				//	// printf( "%d %d \n", x, y );
-				//	continue;
-				//}
-				// printf( "%d %d \n", x, y );
-				// замечание, для исходной картинки эти три значения всегда равны
-				int B = pBuffer[pixelAdr]; // blue
-				int G = pBuffer[pixelAdr + 1]; // green
-				int R = pBuffer[pixelAdr + 2]; // red
-
 				Pixel pixel = GetPixel( x, y );
-				int b = pixel.B;
-				int g = pixel.G;
-				int r = pixel.R;
-
-				assert( B == b );
-				assert( G == g );
-				assert( R == r );
-
-				int Y = ( LumaRed * R + LumaGreen * G + LumaBlue * B + ( CoeffNormalization >> 1 ) )
+				// замечание, для исходной картинки эти три значения всегда равны
+				int B = pixel.B;
+				int G = pixel.G;
+				int R = pixel.R;
+				int Y = (LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1))
 					>> CoeffNormalizationBitsCount; // luminance
-													
+
+				// красный пиксель - для этих пикселей был красный детектор интенсивности
+				if( x % 2 == 0 && y % 2 == 0 ) {
+					R = pixel.R; // правильное зачение
+
+					// усредним синий по соседям
+					int BTL = GetPixel( x - 1, y - 1 ).B; // Blue Top Left
+					int BTR = GetPixel( x + 1, y - 1 ).B; // Blue Top Right
+					int BBL = GetPixel( x - 1, y + 1 ).B; // Blue Bot Left
+					int BBR = GetPixel( x + 1, y + 1 ).B; // Blue Bot Right
+					B = int( (BTL + BTR + BBL + BBR) / 4 );
+
+					// усредним зеленый по соседям
+					int GT = GetPixel( x, y - 1 ).G; // Green Top
+					int GB = GetPixel( x, y + 1 ).G; // Green Bot
+					int GL = GetPixel( x - 1, y ).G; // Green Left
+					int GR = GetPixel( x + 1, y ).G; // Green Right
+					G = int( (GT + GB + GL + GR) / 4 );
+				}
+				// синий пиксель
+				if( x % 2 == 1 && y % 2 == 1 ) {
+					// усредним синий по соседям
+					int RTL = GetPixel( x - 1, y - 1 ).R; // Red Top Left
+					int RTR = GetPixel( x + 1, y - 1 ).R; // Red Top Right
+					int RBL = GetPixel( x - 1, y + 1 ).R; // Red Bot Left
+					int RBR = GetPixel( x + 1, y + 1 ).R; // Red Bot Right
+					R = int( (RTL + RTR + RBL + RBR) / 4 );
+
+					// усредним зеленый по соседям
+					int GT = GetPixel( x, y - 1 ).G; // Green Top
+					int GB = GetPixel( x, y + 1 ).G; // Green Bot
+					int GL = GetPixel( x - 1, y ).G; // Green Left
+					int GR = GetPixel( x + 1, y ).G; // Green Right
+					G = int( (GT + GB + GL + GR) / 4 );
+				}
+				// зеленый пиксель
+				if( ( x % 2 == 1 && y % 2 == 0 ) || ( x % 2 == 0 && y % 2 == 1 ) ){
+					// усредним синий по соседям
+					int RT = GetPixel( x, y - 1 ).R; // Red Top
+					int RB = GetPixel( x, y + 1 ).R; // Red Bot
+					R = int( ( RT + RB ) / 2 );
+
+					// усредним зеленый по соседям
+					int BL = GetPixel( x - 1, y ).G; // Blue Left
+					int BR = GetPixel( x + 1, y ).G; // Blue Right
+					B = int( ( BL + BR ) / 2 );
+				}
 				// desaturation by 50%
 				// no need to check for the interval [0..255]
-				pBuffer[pixelAdr] = ( Y + B ) >> 1;
-				pBuffer[pixelAdr + 1] = 255; // ( Y + G ) >> 1;
-				pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
+				//pBuffer[pixelAdr] = ( Y + B ) >> 1;
+				//pBuffer[pixelAdr + 1] = ( Y + G ) >> 1;
+				//pBuffer[pixelAdr + 2] = ( Y + R ) >> 1;
 
+
+				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
+				pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
+				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
 				pixelAdr += bpp;
 			}
 			baseAdr += bpr;
@@ -190,16 +307,10 @@ public:
 
 void demosacing( BitmapData& pData )
 {
-	//const int w = pData.Width;
-	//const int h = pData.Height;
-	//const int bpr = pData.Stride;
-	//const int bpp = 3; // BGR24
-	//BYTE *pBuffer = ( BYTE * )pData.Scan0;
 	CImage image( pData );
-
+	Pixel pixel = image.GetPixel( 731, 2073 );
 	time_t start = clock();
-	// image.GrayscaleDemosacing( 1324, 1536, 1720, 2462 );
-	image.GrayscaleDemosacing();
+	image.ANN();
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
 }
@@ -217,7 +328,13 @@ void grayscaleDemosacing( BitmapData& pData )
 	int baseAdr = 0;
 	for( int y = 0; y < h; y++ ) {
 		int pixelAdr = baseAdr;
-		for( int x = 0; x < w; x++ ) {
+		for( int x = 731; x < w; x++ ) {
+			int p = 0;
+			if( ( x == 731 ) && ( y == 2073 ) ) {
+				int i = pixelAdr;
+				system( "pause" );
+			}
+
 			int B = pBuffer[pixelAdr]; // blue
 			int G = pBuffer[pixelAdr + 1]; // green
 			int R = pBuffer[pixelAdr + 2]; // red
@@ -242,7 +359,7 @@ void grayscaleDemosacing( BitmapData& pData )
 
 void process( BitmapData& pData )
 {
-	// grayscaleDemosacing( pData );
+	//grayscaleDemosacing( pData );
 	demosacing( pData );
 }
 
