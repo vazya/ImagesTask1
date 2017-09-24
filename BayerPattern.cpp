@@ -139,7 +139,7 @@ public:
 		return Pixel( pBuffer[adr + 2], pBuffer[adr + 1], pBuffer[adr] );
 	}
 
-	// усреднение по ближайшим соседям
+	// Average Nearest Neighbor - усреднение по ближайшим соседям-пикселям искомого цвета
 	void ANN( int top = 0, int bot = 0, int left = 0, int right = 0 )
 	{
 		Bound bound( CheckBound( Bound( top, bot, left, right ) ) );
