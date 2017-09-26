@@ -157,7 +157,7 @@ public:
 		assert( false );
 	}
 
-	// Average Nearest Neighbor - усреднение по ближайшим соседям-пикселям искомого цвета
+	// Patterned Pixel Grouping - усреднение по ближайшим соседям-пикселям искомого цвета
 	void PPG( int top = 0, int bot = 0, int left = 0, int right = 0 )
 	{
 		Bound bound( CheckBound( Bound( top, bot, left, right ) ) );
@@ -165,7 +165,7 @@ public:
 		bot = bound.bot;
 		left = bound.left;
 		right = bound.right;
-		// восстановление G по градиентам в R или B пикселях
+		// восстановление G в R или B пикселях
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
 				Pixel pixel = GetPixel( x, y );
@@ -261,7 +261,7 @@ public:
 				//pBuffer[pixelAdr + 2] = R; (Y + R) >> 1;
 			}
 		}
-		// восстановление R и B по градиентам в G пикселях
+		// восстановление R и B в G пикселях
 		//*
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
@@ -294,7 +294,7 @@ public:
 			}
 		}
 		//*/
-		// восстановление B по градиентам в R пикселях
+		// восстановление R и B в B и R пикселях
 		//*
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
@@ -333,24 +333,6 @@ public:
 						B = HueTransit( G7, G13, G19, B7, B19 );
 					}
 				}
-
-				int pixelAdr = GetAdr( x, y );
-				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
-				//pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
-				//pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
-			}
-		}
-		//*/
-		//// восстановление R по градиентам в B пикселях 
-		//*
-		for( int y = top; y < bot; y++ ) {
-			for( int x = left; x < right; x++ ) {
-				Pixel pixel = GetPixel( x, y );
-				// замечание, для исходной картинки эти три значения всегда равны
-				int B = pixel.B;
-				int G = pixel.G;
-				int R = pixel.R;
-				int Y = (LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1)) >> CoeffNormalizationBitsCount;
 				// синий пиксель
 				if( x % 2 == 1 && y % 2 == 1 ) {
 					int B13 = B;
@@ -376,16 +358,15 @@ public:
 					if( deltaNE < deltaNW ) {
 						R = HueTransit( G9, G13, G17, R9, R17 );
 					} else {
-					//if( deltaNW < deltaNE ) {
+						//if( deltaNW < deltaNE ) {
 						R = HueTransit( G7, G13, G19, R7, R19 );
 					}
 				}
-
 				int pixelAdr = GetAdr( x, y );
-				//pBuffer[pixelAdr] = B; // (Y + B) >> 1;
+				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
 				//pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
 				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
-			} 
+			}
 		}
 		//*/
 	}
@@ -556,6 +537,8 @@ void demosacing( BitmapData& pData )
 	// image.ANN();
 	//image.PPG( 1322, 1543, 1717, 2467 );
 	image.PPG();
+	image.PPG();
+	//image.PPG();
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
 }
