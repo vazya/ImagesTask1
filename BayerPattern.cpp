@@ -147,6 +147,12 @@ public:
 		int j = (v[2] < v[3]) ? 2 : 3;
 		return (v[i] < v[j]) ? i : j;
 	}
+
+	int CheckValue( int value )
+	{
+		return max( 0, min( value, 255 ) );
+	}
+
 	int HueTransit( int l1, int l2, int l3, int v1, int v3 )
 	{
 		if( ( (l1 < l2) && (l2 < l3) ) || ( (l1 > l2) && (l2 > l3) ) ) {
@@ -257,7 +263,7 @@ public:
 
 				int pixelAdr = GetAdr( x, y );
 				//pBuffer[pixelAdr] = B; (Y + B) >> 1;
-				pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
+				pBuffer[pixelAdr + 1] = CheckValue( G ); // (Y + G) >> 1;
 				//pBuffer[pixelAdr + 2] = R; (Y + R) >> 1;
 			}
 		}
@@ -288,9 +294,9 @@ public:
 				}
 
 				int pixelAdr = GetAdr( x, y );
-				pBuffer[pixelAdr] = B; //(Y + B) >> 1;
+				pBuffer[pixelAdr] = CheckValue( B ); //(Y + B) >> 1;
 				//pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
-				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
+				pBuffer[pixelAdr + 2] = CheckValue( R ); // (Y + R) >> 1;
 			}
 		}
 		//*/
@@ -363,9 +369,9 @@ public:
 					}
 				}
 				int pixelAdr = GetAdr( x, y );
-				pBuffer[pixelAdr] = B; // (Y + B) >> 1;
+				pBuffer[pixelAdr] = CheckValue( B ); // (Y + B) >> 1;
 				//pBuffer[pixelAdr + 1] = G; // (Y + G) >> 1;
-				pBuffer[pixelAdr + 2] = R; // (Y + R) >> 1;
+				pBuffer[pixelAdr + 2] = CheckValue( R ); // (Y + R) >> 1;
 			}
 		}
 		//*/
@@ -626,7 +632,7 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	if( argc != 3 )
 	{
-		_tprintf( _T("Usage: BayerPattern <inputFile.bmp> <outputFile.bmp>\n") );
+		_tprintf( _T("Usage: BayerPattern <inputFile.bmp> <outputFile.bmp> <originalFile.bmp>\n") );
 		system( "pause" );
 		return 0;
 	}
