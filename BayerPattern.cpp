@@ -6,6 +6,7 @@
 #include <tchar.h>
 #include <time.h>
 #include <assert.h>
+#include <cmath>
 
 using namespace Gdiplus;
 
@@ -21,6 +22,11 @@ struct Pixel
 	int G;
 	int B;
 	Pixel( int R, int G, int B ) : R( R ), G( G ), B( B ) {};
+	// возвращает яркость
+	float GetY()
+	{
+		return (LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1)) >> CoeffNormalizationBitsCount;
+	}
 };
 
 struct Bound{
@@ -161,6 +167,25 @@ public:
 			return (v1 + v3) / 2 + (l2 - (l1 + l3) / 2) / 2;
 		}
 		assert( false );
+	}
+
+	float Compare( CImage &original )
+	{
+		assert( w == original.w );
+		assert( h == original.h );
+		// mean square error
+		float mse = 0;
+		for( int y = 0; y < h; y++ ) {
+			for( int x = 0; x < w; x++ ) {
+				float Y = GetPixel( x, y ).GetY();
+				float originalY = original.GetPixel( x, y ).GetY();
+				mse += pow( abs( Y - originalY ), 2 );
+			}
+		}
+		mse /= (h*w);
+		_tprintf( _T( "mse: %f\n" ), mse );
+		// непосредственно сама метрика PSNR
+		return 10 * log10f( float( 255*255 ) / ( mse + 0.0000001 ) );
 	}
 
 	// Patterned Pixel Grouping - усреднение по ближайшим соседям-пикселям искомого цвета
@@ -535,7 +560,7 @@ public:
 	}
 };
 
-void demosacing( BitmapData& pData )
+CImage& demosacing( BitmapData& pData )
 {
 	CImage image( pData );
 	time_t start = clock();
@@ -547,6 +572,7 @@ void demosacing( BitmapData& pData )
 	//image.PPG();
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
+	return image;
 }
 
 void grayscaleDemosacing( BitmapData& pData )
@@ -591,10 +617,10 @@ void grayscaleDemosacing( BitmapData& pData )
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
 }
 
-void process( BitmapData& pData )
+CImage& process( BitmapData& pData )
 {
 	//grayscaleDemosacing( pData );
-	demosacing( pData );
+	return demosacing( pData );
 }
 
 int GetEncoderClsid( const WCHAR* format, CLSID* pClsid )
@@ -644,7 +670,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	{	
 		Bitmap GDIBitmap( argv[1] );
-
 		int w = GDIBitmap.GetWidth();
 		int h = GDIBitmap.GetHeight();
 		BitmapData bmpData;
@@ -654,9 +679,22 @@ int _tmain(int argc, _TCHAR* argv[])
 		else
 			_tprintf( _T("File: %s\n"), argv[1] );
 
-		process( bmpData );
+		CImage img = process( bmpData );
+
+		Bitmap GDIBitmapOriginal( argv[3] );
+		BitmapData bmpDataOriginal;
+		if( Ok != GDIBitmapOriginal.LockBits( &rc, ImageLockModeRead | ImageLockModeWrite, PixelFormat24bppRGB, &bmpDataOriginal ) )
+			_tprintf( _T( "Failed to lock image: %s\n" ), argv[1] );
+		else
+			_tprintf( _T( "File: %s\n" ), argv[1] );
+
+		CImage original( bmpDataOriginal );
+
+		float psnr = img.Compare( original );
+		_tprintf( _T( "PSNR = %f\n" ), psnr );
 
 		GDIBitmap.UnlockBits( &bmpData );
+		GDIBitmapOriginal.UnlockBits( &bmpDataOriginal );
 
 		// Save result
 		CLSID clsId;
@@ -666,6 +704,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	GdiplusShutdown( gdiplusToken );
 	system( "openProcImage.cmd" );
-	// system( "pause" );
+	system( "pause" );
 	return 0;
 }
