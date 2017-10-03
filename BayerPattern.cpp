@@ -630,8 +630,9 @@ int GetEncoderClsid( const WCHAR* format, CLSID* pClsid )
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	if( argc != 3 )
+	if( argc != 4 )
 	{
+//C:\Users\VAZYA\source\repos\ImagesTask1\CFA.bmp C:\Users\VAZYA\source\repos\ImagesTask1\Proc_CFA.bmp C:\Users\VAZYA\source\repos\ImagesTask1\Original.bmp
 		_tprintf( _T("Usage: BayerPattern <inputFile.bmp> <outputFile.bmp> <originalFile.bmp>\n") );
 		system( "pause" );
 		return 0;
