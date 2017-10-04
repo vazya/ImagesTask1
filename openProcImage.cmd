@@ -1,1 +1,1 @@
-Proc_CFA.bmp & Original.bmp
+Original.bmp & Proc_CFA.bmp
