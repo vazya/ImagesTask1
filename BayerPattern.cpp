@@ -27,7 +27,7 @@ struct Pixel
 	// возвращает яркость
 	float GetY()
 	{
-		return (LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1)) >> CoeffNormalizationBitsCount;
+		return ((LumaRed * R + LumaGreen * G + LumaBlue * B + (CoeffNormalization >> 1)) >> CoeffNormalizationBitsCount);
 	}
 };
 
@@ -36,8 +36,7 @@ struct Bound{
 	int bot;
 	int left;
 	int right;
-	Bound() : 
-			top( 0 ), bot( 0 ), left( 0 ), right( 0 ) {}
+	Bound() : top( 0 ), bot( 0 ), left( 0 ), right( 0 ) {}
 	Bound( int top, int bot, int left, int right ) : 
 			top( top ), bot( bot ), left( left ), right( right ) {}
 };
@@ -66,43 +65,19 @@ public:
 
 	int CheckTop( int top )
 	{
-		if( top < 0 ) {
-			return 0;
-		}
-		if( top > h ) {
-			return h;
-		}
-		return top;
+		return top == 0 ? 0 : max( 0, min( top, h ) );
 	}
 	int CheckBot( int bot )
 	{
-		if( bot < 0 ) {
-			return 0;
-		}
-		if( bot == 0 || bot > h ) {
-			return h;
-		}
-		return bot;
+		return bot == 0 ? h : max( 0, min( bot, h ) );
 	}
 	int CheckLeft( int left )
 	{
-		if( left < 0 ) {
-			return 0;
-		}
-		if( left > w ) {
-			return w;
-		}
-		return left;
+		return left == 0 ? 0 : max( 0, min( left, w ) );
 	}
 	int CheckRight( int right )
 	{
-		if( right < 0 ) {
-			return 0;
-		}
-		if( right == 0 || right > w ) {
-			return w;
-		}
-		return right;
+		return right == 0 ? w : max( 0, min( right, w ) );
 	}
 	// возвращает границы для безопасного обращения к куску картинки
 	Bound CheckBound( Bound& bound )
@@ -128,13 +103,18 @@ public:
 	// а также учитывающие stride и прочее
 	Pixel GetPixel( int x, int y )
 	{
-		x = CheckX( x );
-		y = CheckY( y );
-		int adr = GetAdr( x, y );
-		//return Pixel( pBuffer[adr], pBuffer[adr + 1], pBuffer[adr+2] );
+		int adr = GetAdr( CheckX( x ), CheckY( y ) );
 		return Pixel( pBuffer[adr + 2], pBuffer[adr + 1], pBuffer[adr] );
 	}
 
+	void SetPixel( int x, int y, int R, int G, int B )
+	{
+		int adr = GetAdr( CheckX( x ), CheckY( y ) );
+		pBuffer[adr] = CheckValue( B );
+		pBuffer[adr + 1] = CheckValue( G );
+		pBuffer[adr + 2] = CheckValue( R );
+	}
+	// возвращает индекс наименьшего элемента, т.е. если min == с вернет 2
 	int Min( int a, int b, int c, int d )
 	{
 		int v[4] = { a, b, c, d };
@@ -152,65 +132,9 @@ public:
 	{
 		if( ( l1 < l2 && l2 < l3 ) || ( l1 > l2 && l2 > l3 ) ) {
 			return v1 + ( v3 - v1 )*( l2 - l1 ) / ( l3 - l1 );
-			//return int(v1 + float((v3 - v1)*(l2 - l1)) / (l3 - l1));
 		} else {
 			return ( v1 + v3 ) / 2 + ( l2 - ( l1 + l3 ) / 2 ) / 2 ;
-			//return int(float(v1 + v3) / 2 + float(l2 - float(l1 + l3) / 2) / 2);
 		}
-	}
-
-	void MarkError( int x, int y )
-	{
-		Pixel pixel = GetPixel( x, y );
-		int B = pixel.B;
-		int G = pixel.G;
-		int R = pixel.R;
-		int pixelAdr = GetAdr( x, y );
-		pBuffer[pixelAdr] = 0;
-		pBuffer[pixelAdr + 1] = 0;
-		pBuffer[pixelAdr + 2] = 255;
-	}
-
-	void MarkError( int x, int y, CImage &original )
-	{
-		Pixel pixel = GetPixel( x, y );
-		Pixel originalPixel = original.GetPixel( x, y );
-
-		int deltaR = abs( pixel.R - originalPixel.R );
-		int deltaG = abs( pixel.G - originalPixel.G );
-		int deltaB = abs( pixel.B - originalPixel.B );
-
-		int pixelAdr = GetAdr( x, y );
-		int i = Min( 0, -deltaR, -deltaG, -deltaB );
-
-		switch( i ) {
-			case 0: {
-				assert( false );
-				break;
-			}
-			case 1: {
-				pBuffer[pixelAdr] = 0;
-				pBuffer[pixelAdr + 1] = 0;
-				pBuffer[pixelAdr + 2] = 128;
-				break;
-			}
-			case 2: {
-				pBuffer[pixelAdr] = 0;
-				pBuffer[pixelAdr + 1] = 128;
-				pBuffer[pixelAdr + 2] = 0;
-				break;
-			}
-			case 3: {
-				pBuffer[pixelAdr] = 128;
-				pBuffer[pixelAdr + 1] = 0;
-				pBuffer[pixelAdr + 2] = 0;
-				break;
-			}
-
-		}
-		//pBuffer[pixelAdr] = deltaB;
-		//pBuffer[pixelAdr + 1] = deltaG;
-		//pBuffer[pixelAdr + 2] = deltaR;
 	}
 
 	float Compare( CImage &original )
@@ -224,9 +148,6 @@ public:
 				float Y = GetPixel( x, y ).GetY();
 				float originalY = original.GetPixel( x, y ).GetY();
 				mse += pow( abs( Y - originalY ), 2 );
-				if( abs( Y - originalY ) > EPS ) {
-					//MarkError( x, y, original );
-				}
 			}
 		}
 		mse /= (h*w);
@@ -246,10 +167,22 @@ public:
 		// восстановление G в R или B пикселях
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
+				if( x == 1759 && y == 1367 ) {
+					Pixel p2 = GetPixel( x - 1, y - 1 );
+					Pixel p3 = GetPixel( x, y - 1 );
+					Pixel p4 = GetPixel( x + 1, y - 1 );
+					Pixel p7 = GetPixel( x - 1, y );
+					Pixel p8 = GetPixel( x, y );
+					Pixel p9 = GetPixel( x + 1, y );
+					Pixel p12 = GetPixel( x - 1, y + 1 );
+					Pixel p13 = GetPixel( x, y + 1 );
+					Pixel p14 = GetPixel( x + 1, y + 1 );
+					int u = 0;
+				}
 				Pixel pixel = GetPixel( x, y );
-				int B = pixel.B;
-				int G = pixel.G;
 				int R = pixel.R;
+				int G = pixel.G;
+				int B = pixel.B;
 				// красный пиксель - для этих пикселей был красный детектор интенсивности
 				if( x % 2 == 0 && y % 2 == 0 ) {
 					int R13 = R;
@@ -268,22 +201,21 @@ public:
 					int deltaW = abs( R13 - R11 ) * 2 + abs( G12 - G14 );
 					int deltaS = abs( R13 - R23 ) * 2 + abs( G8 - G18 );
 
-					int delta = Min( deltaN, deltaE, deltaW, deltaS );
-					switch( delta ) {
+					switch( Min( deltaN, deltaE, deltaW, deltaS ) ) {
 						case 0: {
-							G = int( float(G8 * 3 + G18 + R13 - R3) / 4);
+							G = (G8 * 3 + G18 + R13 - R3) / 4;
 							break;
 						}
 						case 1: {
-							G = int( float(G14 * 3 + G12 + R13 - R15) / 4);
+							G = (G14 * 3 + G12 + R13 - R15) / 4;
 							break;
 						}
 						case 2: {
-							G = int( float(G12 * 3 + G14 + R13 - R11) / 4);
+							G = (G12 * 3 + G14 + R13 - R11) / 4;
 							break;
 						}
 						case 3: {
-							G = int( float(G18 * 3 + G8 + R13 - R23) / 4);
+							G = (G18 * 3 + G8 + R13 - R23) / 4;
 							break;
 						}
 						default:
@@ -308,8 +240,7 @@ public:
 					int deltaW = abs( B13 - B11 ) * 2 + abs( G12 - G14 );
 					int deltaS = abs( B13 - B23 ) * 2 + abs( G8 - G18 );
 
-					int delta = Min( deltaN, deltaE, deltaW, deltaS );
-					switch( delta ) {
+					switch( Min( deltaN, deltaE, deltaW, deltaS ) ) {
 						case 0: {
 							G = int( float(G8 * 3 + G18 + B13 - B3) / 4 );
 							break;
@@ -331,14 +262,10 @@ public:
 					}
 				}
 
-				int pixelAdr = GetAdr( x, y );
-				//pBuffer[pixelAdr] = B;
-				pBuffer[pixelAdr + 1] = CheckValue( G );
-				//pBuffer[pixelAdr + 2] = R;
+				SetPixel( x, y, R, G, B );
 			}
 		}
 		// восстановление R и B в G пикселях
-		//*
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
 				Pixel pixel = GetPixel( x, y );
@@ -346,7 +273,7 @@ public:
 				int G = pixel.G;
 				int R = pixel.R;
 				// зеленый пиксель
-				if( ( (x + y) % 2 == 1) ) {
+				if( x % 2 == 0 && y % 2 == 1 ) {
 					int G8 = G;
 					int G7 = GetPixel( x - 1, y ).G;
 					int G9 = GetPixel( x + 1, y ).G;
@@ -360,22 +287,30 @@ public:
 					int R13 = GetPixel( x, y + 1 ).R;
 					R = HueTransit( G3, G8, G13, R3, R13 );
 				}
+				if( x % 2 == 1 && y % 2 == 0 ) {
+					int G8 = G;
+					int G7 = GetPixel( x - 1, y ).G;
+					int G9 = GetPixel( x + 1, y ).G;
+					int R7 = GetPixel( x - 1, y ).R;
+					int R9 = GetPixel( x + 1, y ).R;
+					R = HueTransit( G7, G8, G9, R7, R9 );
 
-				int pixelAdr = GetAdr( x, y );
-				pBuffer[pixelAdr] = CheckValue( B );
-				//pBuffer[pixelAdr + 1] = G;
-				pBuffer[pixelAdr + 2] = CheckValue( R );
+					int G3 = GetPixel( x, y - 1 ).G;
+					int G13 = GetPixel( x, y + 1 ).G;
+					int B3 = GetPixel( x, y - 1 ).B;
+					int B13 = GetPixel( x, y + 1 ).B;
+					B = HueTransit( G3, G8, G13, B3, B13 );
+				}
+				SetPixel( x, y, R, G, B );
 			}
 		}
-		//*/
 		// восстановление R и B в B и R пикселях
-		//*
 		for( int y = top; y < bot; y++ ) {
 			for( int x = left; x < right; x++ ) {
 				Pixel pixel = GetPixel( x, y );
-				int B = pixel.B;
-				int G = pixel.G;
 				int R = pixel.R;
+				int G = pixel.G;
+				int B = pixel.B;
 				// красный пиксель - для этих пикселей был красный детектор интенсивности
 				if( x % 2 == 0 && y % 2 == 0 ) {
 					int R13 = R;
@@ -395,17 +330,13 @@ public:
 					int G17 = GetPixel( x - 1, y + 1 ).G;
 					int G19 = GetPixel( x + 1, y + 1 ).G;
 
-					int deltaNE = abs( B9 - B17 ) + abs( R5 - R13 ) + abs( R13 - R21 ) + abs( G9 - G13 ) + abs( G13 - G17 );
-					int deltaNW = abs( B7 - B19 ) + abs( R1 - R13 ) + abs( R13 - R25 ) + abs( G7 - G13 ) + abs( G13 - G19 );
+					int deltaNE = abs( B9 - B17 ) + abs( R5 - R13 ) + abs( R13 - R21 ) 
+							+ abs( G9 - G13 ) + abs( G13 - G17 );
+					int deltaNW = abs( B7 - B19 ) + abs( R1 - R13 ) + abs( R13 - R25 ) 
+							+ abs( G7 - G13 ) + abs( G13 - G19 );
 
-					B = ( deltaNE < deltaNW ) ? HueTransit( G9, G13, G17, B9, B17 ) : HueTransit( G7, G13, G19, B7, B19 );
-
-					//if( deltaNE < deltaNW ) {
-					//	B = HueTransit( G9, G13, G17, B9, B17 );
-					//} else {
-					////if( deltaNW < deltaNE ) {
-					//	B = HueTransit( G7, G13, G19, B7, B19 );
-					//}
+					B = ( deltaNE < deltaNW ) ? HueTransit( G9, G13, G17, B9, B17 ) 
+							: HueTransit( G7, G13, G19, B7, B19 );
 				}
 				// синий пиксель
 				if( x % 2 == 1 && y % 2 == 1 ) {
@@ -426,18 +357,18 @@ public:
 					int G17 = GetPixel( x - 1, y + 1 ).G;
 					int G19 = GetPixel( x + 1, y + 1 ).G;
 
-					int deltaNE = abs( R9 - R17 ) + abs( B5 - B13 ) + abs( B13 - B21 ) + abs( G9 - G13 ) + abs( G13 - G17 );
-					int deltaNW = abs( R7 - R19 ) + abs( B1 - B13 ) + abs( B13 - B25 ) + abs( G7 - G13 ) + abs( G13 - G19 );
+					int deltaNE = abs( R9 - R17 ) + abs( B5 - B13 ) + abs( B13 - B21 ) 
+							+ abs( G9 - G13 ) + abs( G13 - G17 );
+					int deltaNW = abs( R7 - R19 ) + abs( B1 - B13 ) + abs( B13 - B25 ) 
+							+ abs( G7 - G13 ) + abs( G13 - G19 );
 
-					R = ( deltaNE < deltaNW ) ? HueTransit( G9, G13, G17, R9, R17 ) : HueTransit( G7, G13, G19, R7, R19 );
+					R = ( deltaNE < deltaNW ) ? HueTransit( G9, G13, G17, R9, R17 ) : 
+							HueTransit( G7, G13, G19, R7, R19 );
 				}
-				int pixelAdr = GetAdr( x, y );
-				pBuffer[pixelAdr] = CheckValue( B );
-				//pBuffer[pixelAdr + 1] = G;
-				pBuffer[pixelAdr + 2] = CheckValue( R );
+
+				SetPixel( x, y, R, G, B );
 			}
 		}
-		//*/
 	}
 };
 
@@ -446,8 +377,6 @@ CImage& demosacing( BitmapData& pData )
 	CImage image( pData );
 	time_t start = clock();
 	image.PPG();
-	//image.PPG();
-	//image.PPG();
 	time_t end = clock();
 	_tprintf( _T( "Time: %.3f\n" ), static_cast<double>( end - start ) / CLOCKS_PER_SEC );
 	return image;
@@ -493,7 +422,9 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	if( argc != 4 )
 	{
-//C:\Users\VAZYA\source\repos\ImagesTask1\CFA.bmp C:\Users\VAZYA\source\repos\ImagesTask1\Proc_CFA.bmp C:\Users\VAZYA\source\repos\ImagesTask1\Original.bmp
+		// <inputFile.bmp> = CFA.bmp 
+		// <outputFile.bmp> = Proc_CFA.bmp 
+		// <originalFile.bmp> = Original.bmp
 		_tprintf( _T("Usage: BayerPattern <inputFile.bmp> <outputFile.bmp> <originalFile.bmp>\n") );
 		system( "pause" );
 		return 0;
@@ -525,8 +456,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		CImage original( bmpDataOriginal );
 
-		float psnr = img.Compare( original );
-		_tprintf( _T( "PSNR = %f\n" ), psnr );
+		_tprintf( _T( "PSNR = %f\n" ), img.Compare( original ) );
 
 		GDIBitmap.UnlockBits( &bmpData );
 		GDIBitmapOriginal.UnlockBits( &bmpDataOriginal );
